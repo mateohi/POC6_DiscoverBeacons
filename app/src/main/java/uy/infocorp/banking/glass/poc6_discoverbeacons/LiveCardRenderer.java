@@ -11,6 +11,15 @@ import android.graphics.Typeface;
 import android.os.SystemClock;
 import android.view.SurfaceHolder;
 
+import java.util.List;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+
+import uy.infocorp.banking.glass.poc6_discoverbeacons.beacon.BeaconHandler;
+import uy.infocorp.banking.glass.poc6_discoverbeacons.beacon.IBeacon;
+import uy.infocorp.banking.glass.poc6_discoverbeacons.beacon.estimote.EstimoteBeaconHandler;
+
 public class LiveCardRenderer implements DirectRenderingCallback {
 
     /** The duration, in millisconds, of one frame. */
@@ -26,7 +35,7 @@ public class LiveCardRenderer implements DirectRenderingCallback {
     private static final int MAX_ALPHA = 256;
 
     private final Paint mPaint;
-    private final String mText;
+    private String foundBeacons;
 
     private int mCenterX;
     private int mCenterY;
@@ -36,7 +45,13 @@ public class LiveCardRenderer implements DirectRenderingCallback {
 
     private RenderThread mRenderThread;
 
+    private BeaconHandler beaconHandler;
+    private ScheduledExecutorService task;
+
     public LiveCardRenderer(Context context) {
+        this.beaconHandler = new EstimoteBeaconHandler(context);
+        createAndStartScheduledTask();
+
         mPaint = new Paint();
         mPaint.setStyle(Paint.Style.FILL);
         mPaint.setColor(Color.WHITE);
@@ -46,7 +61,26 @@ public class LiveCardRenderer implements DirectRenderingCallback {
         mPaint.setTypeface(Typeface.create("sans-serif-thin", Typeface.NORMAL));
         mPaint.setAlpha(0);
 
-        mText = context.getResources().getString(R.string.hello_world);
+        foundBeacons = "Looking for beacons ...";
+    }
+
+    private void createAndStartScheduledTask() {
+        task = Executors.newSingleThreadScheduledExecutor();
+
+        task.scheduleAtFixedRate(new Runnable() {
+            public void run() {
+                updateBeaconsString();
+            }
+        }, 0, 10, TimeUnit.SECONDS);
+    }
+
+    private void updateBeaconsString() {
+        List<IBeacon> beacons = this.beaconHandler.getAllBeacons();
+        StringBuilder sb = new StringBuilder();
+        for (IBeacon beacon : beacons) {
+            sb.append("Name: ");
+        }
+        this.foundBeacons = sb.toString();
     }
 
     @Override
@@ -82,9 +116,16 @@ public class LiveCardRenderer implements DirectRenderingCallback {
             if (shouldRender) {
                 mRenderThread = new RenderThread();
                 mRenderThread.start();
+
+                beaconHandler.startListening();
+                createAndStartScheduledTask();
             } else {
                 mRenderThread.quit();
                 mRenderThread = null;
+
+                beaconHandler.stopListening();
+                task.shutdown();
+                task = null;
             }
         }
     }
@@ -105,7 +146,7 @@ public class LiveCardRenderer implements DirectRenderingCallback {
 
             // Update the text alpha and draw the text on the canvas.
             mPaint.setAlpha((mPaint.getAlpha() + ALPHA_INCREMENT) % MAX_ALPHA);
-            canvas.drawText(mText, mCenterX, mCenterY, mPaint);
+            canvas.drawText(foundBeacons, mCenterX, mCenterY, mPaint);
 
             // Unlock the canvas and post the updates.
             mHolder.unlockCanvasAndPost(canvas);
