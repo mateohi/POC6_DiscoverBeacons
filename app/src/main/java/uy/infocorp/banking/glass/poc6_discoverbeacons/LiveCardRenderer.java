@@ -180,12 +180,10 @@ public class LiveCardRenderer implements DirectRenderingCallback {
         }
     }
 
-    private void drawMultilineText(String text, int x, int y, Paint paint, Canvas canvas) {
-        int offset = 0;
-
+    private static void drawMultilineText(String text, int x, int y, Paint paint, Canvas canvas) {
         for (String line : text.split("\n")) {
-            canvas.drawText(line, 50, y + offset, paint);
-            offset += 40;
+            canvas.drawText(line, x, y, paint);
+            y += paint.descent() - paint.ascent();
         }
     }
 
