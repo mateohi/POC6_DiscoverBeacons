@@ -13,6 +13,7 @@ public class DiscoverBeaconService extends Service {
     private static final String LIVE_CARD_TAG = DiscoverBeaconService.class.getSimpleName();
 
     private LiveCard liveCard;
+    private LiveCardRenderer renderer;
 
     @Override
     public IBinder onBind(Intent intent) {
@@ -24,7 +25,7 @@ public class DiscoverBeaconService extends Service {
         if (liveCard == null) {
             liveCard = new LiveCard(this, LIVE_CARD_TAG);
 
-            LiveCardRenderer renderer = new LiveCardRenderer(this);
+            renderer = new LiveCardRenderer(this);
             liveCard.setDirectRenderingEnabled(true).getSurfaceHolder().addCallback(renderer);
 
             // Display the options menu when the live card is tapped.
@@ -40,6 +41,7 @@ public class DiscoverBeaconService extends Service {
 
     @Override
     public void onDestroy() {
+        renderer.destroyBeaconHandler();
         if (liveCard != null && liveCard.isPublished()) {
             liveCard.unpublish();
             liveCard = null;

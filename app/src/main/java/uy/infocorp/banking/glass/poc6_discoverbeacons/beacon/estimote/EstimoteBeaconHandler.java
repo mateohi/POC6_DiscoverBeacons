@@ -22,7 +22,7 @@ public class EstimoteBeaconHandler extends BeaconHandler {
     private static final Region ALL_ESTIMOTE_BEACONS_REGION = new Region("rid", null, null, null);
 
     private BeaconManager beaconManager;
-    private List<IBeacon> iBeacons;
+    private List<IBeacon> iBeacons = new ArrayList<IBeacon>();
 
     public EstimoteBeaconHandler(Context context) {
         super(context);
@@ -66,26 +66,20 @@ public class EstimoteBeaconHandler extends BeaconHandler {
     }
 
     private IBeacon mapEstimoteBeacon(Beacon beacon) {
-        double rssi = beacon.getRssi();
-        Utils.Proximity proximity = Utils.computeProximity(beacon);
+        String id = String.valueOf(beacon.getMinor());
         double accuracy = Utils.computeAccuracy(beacon);
 
-        Log.i(TAG, "RSSI:\t" + rssi);
-        Log.i(TAG, "Proximity:\t" + proximity.name());
-        Log.i(TAG, "Accuracy:\t" + accuracy);
-
         IBeacon iBeacon = new IBeacon();
+        iBeacon.setId(id);
+        iBeacon.setMacAddress(beacon.getMacAddress());
+        iBeacon.setName(beacon.getName());
+        iBeacon.setDistance(accuracy);
         return iBeacon;
     }
 
     @Override
     public List<IBeacon> getAllBeacons() {
-        return null;
-    }
-
-    @Override
-    public List<IBeacon> getAllBeaconsInRange(int metersRadius) {
-        return null;
+        return iBeacons;
     }
 
     @Override

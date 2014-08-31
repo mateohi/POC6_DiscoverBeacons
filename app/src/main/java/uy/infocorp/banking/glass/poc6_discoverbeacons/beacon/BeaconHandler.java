@@ -13,7 +13,6 @@ public abstract class BeaconHandler {
     }
 
     public abstract List<IBeacon> getAllBeacons();
-    public abstract List<IBeacon> getAllBeaconsInRange(int metersRadius);
 
     public abstract void startListening();
     public abstract void stopListening();

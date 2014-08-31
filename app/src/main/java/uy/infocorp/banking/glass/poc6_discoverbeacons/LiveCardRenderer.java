@@ -25,25 +25,15 @@ public class LiveCardRenderer implements DirectRenderingCallback {
     /** The duration, in millisconds, of one frame. */
     private static final long FRAME_TIME_MILLIS = 40;
 
-    /** "Hello world" text size. */
-    private static final float TEXT_SIZE = 70f;
+    private static final float TEXT_SIZE = 30f;
 
-    /** Alpha variation per frame. */
-    private static final int ALPHA_INCREMENT = 5;
-
-    /** Max alpha value. */
-    private static final int MAX_ALPHA = 256;
-
-    private final Paint mPaint;
+    private final Paint paint;
     private String foundBeacons;
 
-    private int mCenterX;
-    private int mCenterY;
+    private SurfaceHolder holder;
+    private boolean renderingPaused;
 
-    private SurfaceHolder mHolder;
-    private boolean mRenderingPaused;
-
-    private RenderThread mRenderThread;
+    private RenderThread renderThread;
 
     private BeaconHandler beaconHandler;
     private ScheduledExecutorService task;
@@ -52,76 +42,80 @@ public class LiveCardRenderer implements DirectRenderingCallback {
         this.beaconHandler = new EstimoteBeaconHandler(context);
         createAndStartScheduledTask();
 
-        mPaint = new Paint();
-        mPaint.setStyle(Paint.Style.FILL);
-        mPaint.setColor(Color.WHITE);
-        mPaint.setAntiAlias(true);
-        mPaint.setTextSize(TEXT_SIZE);
-        mPaint.setTextAlign(Paint.Align.CENTER);
-        mPaint.setTypeface(Typeface.create("sans-serif-thin", Typeface.NORMAL));
-        mPaint.setAlpha(0);
+        paint = new Paint();
+        paint.setStyle(Paint.Style.FILL);
+        paint.setColor(Color.WHITE);
+        paint.setAntiAlias(true);
+        paint.setTextSize(TEXT_SIZE);
+        paint.setTypeface(Typeface.create("sans-serif-thin", Typeface.NORMAL));
 
-        foundBeacons = "Looking for beacons ...";
+        this.foundBeacons = "Looking for beacons ...";
     }
 
     private void createAndStartScheduledTask() {
-        task = Executors.newSingleThreadScheduledExecutor();
+        this.task = Executors.newSingleThreadScheduledExecutor();
 
-        task.scheduleAtFixedRate(new Runnable() {
+        this.task.scheduleAtFixedRate(new Runnable() {
             public void run() {
                 updateBeaconsString();
             }
-        }, 0, 10, TimeUnit.SECONDS);
+        }, 0, 2, TimeUnit.SECONDS);
     }
 
     private void updateBeaconsString() {
         List<IBeacon> beacons = this.beaconHandler.getAllBeacons();
-        StringBuilder sb = new StringBuilder();
-        for (IBeacon beacon : beacons) {
-            sb.append("Name: ");
+
+        if (!beacons.isEmpty()) {
+            StringBuilder sb = new StringBuilder();
+            for (IBeacon beacon : beacons) {
+                sb.append("Id: " + beacon.getId() + "\n");
+                sb.append("Name: " + beacon.getName() + "\n");
+                sb.append("Distance: " + String.format("%.2f", beacon.getDistance()) + "\n");
+            }
+            this.foundBeacons = sb.toString();
         }
-        this.foundBeacons = sb.toString();
+        else {
+            this.foundBeacons = "No beacons found";
+        }
     }
 
     @Override
     public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
-        mCenterX = width / 2;
-        mCenterY = height / 2;
     }
 
     @Override
     public void surfaceCreated(SurfaceHolder holder) {
-        mHolder = holder;
-        mRenderingPaused = false;
+        this.holder = holder;
+        renderingPaused = false;
         updateRenderingState();
     }
 
     @Override
     public void surfaceDestroyed(SurfaceHolder holder) {
-        mHolder = null;
+        this.holder = null;
         updateRenderingState();
     }
 
     @Override
     public void renderingPaused(SurfaceHolder holder, boolean paused) {
-        mRenderingPaused = paused;
+        renderingPaused = paused;
         updateRenderingState();
     }
 
     private void updateRenderingState() {
-        boolean shouldRender = (mHolder != null) && !mRenderingPaused;
-        boolean isRendering = (mRenderThread != null);
+        boolean shouldRender = (holder != null) && !renderingPaused;
+        boolean isRendering = (renderThread != null);
 
         if (shouldRender != isRendering) {
             if (shouldRender) {
-                mRenderThread = new RenderThread();
-                mRenderThread.start();
+                renderThread = new RenderThread();
+                renderThread.start();
 
                 beaconHandler.startListening();
                 createAndStartScheduledTask();
             } else {
-                mRenderThread.quit();
-                mRenderThread = null;
+                renderThread.quit();
+                renderThread = null;
 
                 beaconHandler.stopListening();
                 task.shutdown();
@@ -136,7 +130,7 @@ public class LiveCardRenderer implements DirectRenderingCallback {
     private void draw() {
         Canvas canvas;
         try {
-            canvas = mHolder.lockCanvas();
+            canvas = holder.lockCanvas();
         } catch (Exception e) {
             return;
         }
@@ -144,13 +138,16 @@ public class LiveCardRenderer implements DirectRenderingCallback {
             // Clear the canvas.
             canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR);
 
-            // Update the text alpha and draw the text on the canvas.
-            mPaint.setAlpha((mPaint.getAlpha() + ALPHA_INCREMENT) % MAX_ALPHA);
-            canvas.drawText(foundBeacons, mCenterX, mCenterY, mPaint);
+            // draw the text on the canvas.
+            drawMultilineText(foundBeacons, 50, 50, paint, canvas);
 
             // Unlock the canvas and post the updates.
-            mHolder.unlockCanvasAndPost(canvas);
+            holder.unlockCanvasAndPost(canvas);
         }
+    }
+
+    public void destroyBeaconHandler() {
+        this.beaconHandler.destroy();
     }
 
     private class RenderThread extends Thread {
@@ -180,6 +177,15 @@ public class LiveCardRenderer implements DirectRenderingCallback {
                     SystemClock.sleep(sleepTime);
                 }
             }
+        }
+    }
+
+    private void drawMultilineText(String text, int x, int y, Paint paint, Canvas canvas) {
+        int offset = 0;
+
+        for (String line : text.split("\n")) {
+            canvas.drawText(line, 50, y + offset, paint);
+            offset += 40;
         }
     }
 
